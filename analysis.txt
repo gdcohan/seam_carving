@@ -1,0 +1,162 @@
+Part 1:
+
+My implementation:
+
+Each use of seam-carve requires calling three functions:
+1) image->2d-color-list (one time)
+2) carve-one-seam (as many times as seams need to be carved)
+3) 2d-color-list->image (one time)
+
+For the purposes of this analysis, we will consider the efficiency of carving one seam, as carving multiple seams will have a marginal impact on the efficiency of carving any one seam.
+
+image->2d-color-list:
+
+This is a function provided in the support code. Although I was unable to formally analyze the efficiency of this function, it appears that it iterates through all of the pixels in the image and does a constant amount of operations on each pixel. This would make this function in O[k->k] where k is the number of pixels in the image.
+
+2d-color-list->image:
+
+The analysis of image->2d-color-list applies to the reverse function, as well.
+
+carve-one-seam:
+
+This function calls other functions:
+1) list-image->energies
+2) make-vectors-for-seams energies
+3) process-first-row
+4) process-rest-rows
+5) remove-pixels
+6) reverse
+7) pick-lowest-seam
+
+I will return to the analysis of this function after analyzing its sub-functions.
+
+~~~~~~~~~~~~~~~~~~~~~~~
+list-image->energies:
+
+This function consists of three sub-functions:
+
+1) 2d-list-colors->2d-vector-brightness
+2) make-new-blank-vector
+3) bright->energy
+
+I will return to the analysis of this function after analyzing its sub-functions.
+
+2d-list-colors->2d-vector-brightness:
+This function first calls make-vector using the length of the 2d-color list (i.e. the height of the image). Length is linear in the length of the list it is called on, so it seems reasonable to think that make-vector is also linear in the number of rows in the image. The function then iterates through each row of the image and mutates the 2d-vector made at the beginning of the function to hold the brightness of each pixel. It does this by calling listofcolors->vectorofbrightness.
+
+listofcolors->vectorofbrightness:
+This function also calls make-vector, only in this case the list it takes the length of is a row of the image. Thus, this call is linear in the number of pixels in a row of the image. It then iterates through each pixel in the row and does a constant number of operations to calculate the brightness and mutates the vector to hold this calculated value. Thus, the overall function is in O[k->k] where k is the number of pixels in a row of the image (i.e. the width). 
+
+We can now return to 2d-list-colors->2d-vector-brightness. It calls a function that is linear in the height of the image once, and then it calls a function that is linear in the width of the image for each row. Thus, if you were to increase the size of the image by increasing the number of rows by adding a new pixel, you would be increasing the number of operations by some constant. Similarly, if you were to increase the size of the image by adding a pixel to an existing row, you would increase the number of operations by another constant. In this way, the function is in O[k->k] where k is the number of pixels in the image.
+
+make-new-blank-vector:
+This function makes a new 2d-vector. For each row in the 2d-vector, it must make a new vector using a make-vector call and the length of a vector, both of which are done in constant time. Thus, it does a constant number of operations for each row, so the function is in O[k->k] where k is the number of rows in the image. 
+
+bright->energy:
+This function uses a 2d-vector of brightness to mutate a 2d-vector to hold the energy of each pixel. The function iterates through every pixel, doing a constant number of operations to access and mutate the pixel. To figure out what value it needs to use to set the 2d-vector, it calls getenergy.
+
+getenergy:
+This function does a constant amount of operations to apply the energy formula to the x-energy and y-energy. This function also gets the x and y-energies by calling x-energy and y-energy, respectively.
+
+x-energy (and y-energy).
+This function does a constant number of operations to apply the x-energy formula to the 6 appropriate neighbors. This function also gets the brightness of these neighbors using the get-neighbors function.
+
+get-neighbors:
+This function does a constant number of operations to check if the indices it is passed are out of bounds--if they are, it returns a brightness of zero. If they are not, it does a constant number of operations to access an index in a 2d-vector. Thus get-neighbors is in O[k->1].
+
+Returning to x-energy, we can now see that it does a constant amount of work in applying the formula and calling get-neighbors 6 times, which also does a constant amount of work. Thus, x-energy (and y-energy) is in O[k->1] 
+
+Returning to get-energy, we can now see that it does a constant amount of work in applying the formula and getting the x and y energy (both of which do a constant number of operations). Thus, getenergy is in O[k->1].
+
+Returning to bright->energy, it does a constant amount of work for each pixel in accessing and mutating each pixel, and a constant amount of work for each pixel in calling getenergy. Thus, it does a constant number of operations for each pixel in the image and iterates through every pixel in the image. Therefore, the function is in O[k->k] where k is the number of pixels in the image.
+
+Returning to list-image->energies, it first calls a function that is linear in the number of pixels in the image (2d-list-colors->2d-vector-brightness). It then calls a function that is linear in the number of rows in the image (make-new-blank-vector). Finally, it calls a function that is linear in the number of pixels in the image (bright->energy). Thus, in the worst case this function call three functions that are linear in the number of pixels in the image (if the image only has one pixel in each row). Thus, overall this function is in O[k->k] where k is the number of pixels in the image. 
+
+~~~~~~~~~~~~~~~~~~~~~~
+make-vector-for-seam-energies:
+This function makes a 2d-vector of seam-nodes (make-seam-node cost path). It does this using build-vector and initializes each index in the vector to a (make-seam-node 0 empty). Thus, it has to iterate through the entire vector and initialize it, making this function in O[k->k] where k is the number of pixels in the image.
+
+~~~~~~~~~~~~~~~~~~~~~~~~
+Process-first-row:
+This function iterates through each pixel in the first row of the image. For each pixel, it does a constant amount of operations to access and mutate indices in the 2d-seam-vector. Thus, this function is in O[k->k] where k is the number of pixels in one row of the image (i.e. the width).
+
+~~~~~~~~~~~~~~~~~~~~~~~~
+Process-rest-rows:
+This function iterates through every remaining pixel in the image (after the first row is already processed). For each pixel, it does a constant number of operations to access and mutate indices in vectors and cons elements onto a list (also accessed via a vector, giving constant time). However, it also calls get-min-of on each pixel. Thus, we need to analyze get-min-of and then return to process-rest-rows.
+
+get-min-of:
+This function gets a num-and-posn (make-num-and-posn number posn) representing each of the three seams vertically adjacent to the given pixel. It then removes the voids from this list, sorts it according to the num-and-posn with the lowest number, and takes the first item from this list. Thus, we need to analyze get-one-min.
+
+get-one-min:
+This function does a constant number of operations to check if the given indices are out of bounds--if they are, it returns void. If they are not, it does a constant number of operations to create a num-and-posn to return representing the cost of the seam and the position of its bottom-most pixel. Thus, the function is in O[k->1].
+
+Returning to get-min-of, it does a constant number of operations in calling get-one-min 3 times. It then does a constant number of operations to iterate through this list of three elements and remove any voids from the list. It then does a number of operations that is bounded by the size of the list (which is always less than or equal to three) to sort it. It then does one operation to take the first element of this list. Thus, get-min-of does a constant number of operations in the worst case and is in O[k->1].
+
+Returning to process-rest-rows, we can see that it does a constant number of operations in accessing and mutating each pixel, and also a constant number of operations in creating the seam-node that will become the new value of the 2d-seam-vector. Thus, it does a constant number of operations for each pixel and iterates through each pixel in the image, making the function in O[k->k] where k is the number of pixels in the image. 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~
+remove-pixels:
+
+This function removes an element from each list in a list of lists. It does so by removing an element from the first list and cons'ing that on to a recursive call to the same function. Thus, we need to analyze the remove-index-from-list function.
+
+remove-index-from-list:
+This function iterates through a list, keeping track of a list that is decreasing in size and a list that is increasing in size. For every element in the decreasing-list that is not to be removed, it appends the first of the decreasing-list on to the increasing list. Append is linear in the size of the first list, and this list grows in size by one for each recursive call. For the element that is going to be removed, the function just recurs without appending anything. In the worst case, the function will have to do an append operation for every element in the list (if the element to be removed is at the end of the list). In this case, the function will have to do a number of operations for each element in the list that is linearly related to its index in the list. Since this function does this for every element in the list, we get a situation of doing 1 + 2 + 3 + k operations (where k is the number of elements in the list). This sums to k(k+1)/2 = (k^2+k) /2. Thus, this function is in O[k->k^2] where k is the number of elements in the list. In this case, the number of elements in the list will be the number of pixels in one row of the image.
+
+Returning to remove-pixels, we have to make a call to a function that is quadratic in the number of columns in the image (i.e. the width), and we have to make that call for each row in the image. Because there is a function quadratically related to the number of columns and a linear term related to the number of rows, the worst case will be an image that is only one row and the pixel to be removed is the last pixel in the column. In this case, the function will be in O[k->k^2] where k is the number of pixels in the image. 
+
+~~~~~~~~~~~~~~~~~~~~~~~~
+Reverse:
+
+Since this is a built in, I'm not positive of the efficiency. I tried to run the function on lists of different sizes, but I couldn't really discern any program. In trying to think of how I could implement it, though, I think it can be done in linear time. I would keep track of two lists, the one to reverse and the resulting list. I would then append the first element of the list to reverse and the accumulating list (that will already have been reversed). You will always be accessing the first element of the list to reverse (because you will always recur on the rest), and because append is linear in the size of the first list, this will only be some constant number of operations because the size of the first list will always be one. 
+
+It might look something like this:
+
+(define (reverse to-reverse already-reversed)
+  (cond
+    [(empty? to-reverse) already-reversed]
+    [else
+	(reverse (rest to-reverse)
+    	  (append (first to-reverse) already-reversed))]))
+
+~~~~~~~~~~~~~~~~~~~~~~~~~
+pick-lowest-seam:
+This requires iterating through the last row of the 2d-seam-vector to find the lowest cost seam. It has to check each element in the vector, and to do so it does a constant number of operations. Thus, this function is in O[k->k] where k is the number of elements in the vector. In the context of the overall program, that k will always be the number of pixels in one row.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+carve-one-seam:
+We can now return to analyzing the efficiency of the top level function. These are the functions it calls, with their respective efficiencies in the context of the program.
+
+1) list-image->energies
+O[k->k] where k is the number of pixels in the image
+2) make-vectors-for-seams energies
+O[k->k] where k is the number of pixels in the image
+3) process-first-row
+O[k->k] where k is the number of pixels in one row
+4) process-rest-rows
+O[k->k] where k is the number of pixels in the image (minus the first row)
+5) remove-pixels
+O[k->k^2] where k is the number of pixels in the image
+6) reverse
+O[k->k] where k is the number of pixels in the image
+7) pick-lowest-seam
+O[k->k] where k is the number of pixels in one row
+
+Also, we can combine process-first-row and process-rest-rows, as together they process the entire image in linear time.
+
+Thus, overall we have 5 functions that are in O[k->k] where k is the number of pixels in the image, and one function that is in O[k->k^2] where k is the number of pixels in the image. As k becomes very large, the efficiency of the quadratic function becomes the predominant determinant of the efficiency of the whole program. Thus, the whole program is in O[k->k^2] where k is the number of pixels in the image. 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Part 2:
+
+A naive implementation:
+
+Upper-bound on number of seams:
+
+If there is only one row, the number of vertical seams is the number of pixels in the image. For every additional row, each pixel in that row (with the exception of the pixels at or near either edge of the picture), can be part of a number of seams that is three times the number of seams the pixel in the row above it could be part of. Thus, for the second row, most pixels can be part of 3 seams. For the third row, most pixels can be part of 9 seams. For the fourth row, most pixels can be part of 27 seams. This is because each pixel can be part of any of the seams that each of the three "vertically adjacent" pixels is part of.
+
+Thus, the number of seams is bounded by approximately 3 ^ (number of rows - 1) * the number of columns. This is because each pixel in a row can be part of 3 ^ [number of rows - 1] seams. Put in a different way, the number of vertical seams is bounded by approximately (3^height) * width (where height and width are both in terms of pixels). 
+
+This allows us to analyze the efficiency of a naive implementation:
+
+Assuming the rest of the implementation stayed the same, the one function that would change dramatically in the naive implementation would be process-rest-rows. Within that function, the part that would change most would be where I currently use the function get-min. Instead of using get-min, there would presumably some sort of get-all-possible-seams function that would create a new seam for every possible seam that the pixel being processed could be part of. In my implementation, get-min is in O[k->1] because the same number of operations is done regardless of the size of the image (for each pixel). However, this would turn into an exponential function, as each pixel would have to account for every possible seam that it could be part of. This number would grow exponentially with each row of the image, as discussed above. Thus, process-rest-rows would turn into a function that is in O[k,c-> c*n^k], where c is the number of columns in the image, n is some constant and k is the number of rows in the image. Thus, in the final analysis it would be process-rest-rows that would dominate the efficiency of the algorithm at sufficiently large image sizes. While the analysis would be slightly different in that it would be in terms of the number of rows in the image instead of the number of pixels in the image, it would be in O[k->n^k] where n is a constant and k is the number of rows in the image.
